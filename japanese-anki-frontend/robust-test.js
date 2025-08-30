@@ -30,6 +30,28 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// 通用截图函数
+async function takeScreenshot(page, stepName, stepNumber = null) {
+    try {
+        const timestamp = Date.now();
+        const stepPrefix = stepNumber ? `step-${stepNumber.toString().padStart(2, '0')}-` : '';
+        const screenshotPath = `./screenshots/${stepPrefix}${stepName}-${timestamp}.png`;
+        
+        // 确保截图目录存在
+        const fs = await import('fs');
+        if (!fs.existsSync('./screenshots')) {
+            fs.mkdirSync('./screenshots', { recursive: true });
+        }
+        
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        log(`📸 已截图保存【${stepName}】状态: ${screenshotPath}`);
+        return screenshotPath;
+    } catch (error) {
+        log(`截图失败 (${stepName}):`, error.message);
+        return null;
+    }
+}
+
 // 详细的日志输出
 function log(message, data = null) {
     const timestamp = new Date().toISOString();
@@ -131,16 +153,19 @@ async function runFullTest() {
         log("访问首页...");
         await page.goto('http://104cf0ee.r3.cpolar.top');
         await page.waitForLoadState('networkidle');
+        await takeScreenshot(page, 'homepage-loaded', 1);
         
         // 2. 点击登录/注册按钮
         log("点击登录/注册按钮...");
         await page.click('button:has-text("Login/Register")');
         await page.waitForTimeout(2000);
+        await takeScreenshot(page, 'login-modal-opened', 2);
         
         // 3. 切换到注册模式
         log("切换到注册模式...");
         await page.click('button:has-text("No account? Register")');
         await page.waitForTimeout(1000);
+        await takeScreenshot(page, 'register-mode-selected', 3);
         
         // 4. 填写注册信息 - 模拟输入用户名、密码、邮箱
         log("填写注册信息...");
@@ -151,6 +176,7 @@ async function runFullTest() {
         await page.fill('input[type="text"]', user.username);
         await page.fill('input[type="email"]', user.email);
         await page.fill('input[type="password"]', user.password);
+        await takeScreenshot(page, 'register-form-filled', 4);
         
         // 5. 提交注册 - 模拟点击注册按钮
         log("模拟点击注册按钮...");
@@ -159,6 +185,7 @@ async function runFullTest() {
         // 等待注册响应 - 预期注册成功，网页自动切换到登陆界面
         log("等待注册响应，预期注册成功并自动切换到登录界面...");
         await page.waitForTimeout(5000);
+        await takeScreenshot(page, 'register-submitted', 5);
         
         // 检查是否成功切换到登录界面
         const loginModeBtn = await page.locator('button:has-text("Have account? Login")');
@@ -218,6 +245,7 @@ async function runFullTest() {
             // 等待登录响应 - 预期登录成功，浮窗自动消失
             log("等待登录响应，预期登录成功浮窗自动消失...");
             await page.waitForTimeout(5000);
+            await takeScreenshot(page, 'login-completed', 6);
             
             // 检查登录是否成功 - 浮窗应当自动消失
             const modalExists = await page.locator('.fixed.inset-0').count();
@@ -247,6 +275,7 @@ async function runFullTest() {
             await n5Checkbox.check();
             log("已选择N5等级");
         }
+        await takeScreenshot(page, 'vocabulary-levels-selected', 7);
         
         // 10. 输入日语文本 - 输入大约300字的日语文本
         const japaneseText = generateJapaneseText();
@@ -260,6 +289,7 @@ async function runFullTest() {
         } else {
             log("⚠️  警告：未找到文本输入区域");
         }
+        await takeScreenshot(page, 'japanese-text-entered', 8);
         
         // 11. 提交任务 - 点击开始生成单词卡片
         log("准备提交任务，点击开始生成单词卡片...");
@@ -277,6 +307,7 @@ async function runFullTest() {
         } else {
             log("⚠️  警告：未找到生成卡片按钮");
         }
+        await takeScreenshot(page, 'task-submitted', 9);
         
         // 12. 等待任务创建并验证Task Queue中出现新任务
         log("等待任务创建，验证Task Queue中出现新任务...");
@@ -325,16 +356,12 @@ async function runFullTest() {
             }
             
             // 截图查看当前状态
-            const screenshotPath = `./task-created-${Date.now()}.png`;
-            await page.screenshot({ path: screenshotPath, fullPage: true });
-            log(`📸 已截图保存任务创建状态: ${screenshotPath}`);
+            await takeScreenshot(page, 'task-created', 10);
         } catch (error) {
             log("❌ 任务创建检查失败:", error.message);
             
             // 截图查看当前状态
-            const errorPath = `./task-error-${Date.now()}.png`;
-            await page.screenshot({ path: errorPath, fullPage: true });
-            log(`📸 已截图保存错误状态: ${errorPath}`);
+            await takeScreenshot(page, 'task-creation-error', 10);
         }
         
         // 13. 轮询任务状态 - 每10秒刷新界面检查任务
@@ -356,6 +383,9 @@ async function runFullTest() {
             const taskElements = await page.$$('.bg-white.rounded-lg.border.border-gray-200');
             log(`找到 ${taskElements.length} 个任务`);
             
+            // 每次检查时截图记录状态
+            await takeScreenshot(page, `task-status-check-attempt-${attempts}`, 10 + attempts);
+            
             for (let taskElement of taskElements) {
                 const taskText = await taskElement.textContent();
                 log(`任务详情: ${taskText}`);
@@ -363,6 +393,7 @@ async function runFullTest() {
                 if (taskText && taskText.includes('Completed')) {
                     log("任务已完成！准备下载...");
                     completed = true;
+                    await takeScreenshot(page, 'task-completed', 20);
                     
                     // 模拟鼠标点击任务
                     log("模拟鼠标点击任务...");
@@ -383,6 +414,7 @@ async function runFullTest() {
                         
                         await download.saveAs(downloadPath);
                         log(`文件已下载到: ${downloadPath}`);
+                        await takeScreenshot(page, 'file-downloaded', 21);
                         
                         // 检查文件
                         const fs = await import('fs');
@@ -444,7 +476,7 @@ async function runFullTest() {
 }
 
 // 运行测试
-console.log("开始运行健壮测试...");
+console.log("开始运行测试...");
 runFullTest()
     .then(() => {
         console.log("测试成功完成！");
