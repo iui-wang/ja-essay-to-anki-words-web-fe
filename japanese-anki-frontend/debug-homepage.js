@@ -6,7 +6,7 @@ async function debugHomepage() {
   
   try {
     console.log('访问首页...');
-    await page.goto('http://179412be.r3.cpolar.top');
+    await page.goto('http://3a07ca02.r3.cpolar.top');
     await page.waitForTimeout(5000);
     
     console.log('保存页面截图...');

@@ -7,6 +7,6 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['179412be.r3.cpolar.top']
+    allowedHosts: ['3a07ca02.r3.cpolar.top']
   }
 })

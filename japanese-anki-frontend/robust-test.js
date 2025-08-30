@@ -249,7 +249,7 @@ async function runFullTest() {
         
         // 1. 访问首页 - 使用实际的开发服务器地址
         log("访问首页...");
-        const frontendUrl = process.env.FRONTEND_URL || 'http://179412be.r3.cpolar.top';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://3a07ca02.r3.cpolar.top';
         log(`使用前端地址: ${frontendUrl}`);
         await page.goto(frontendUrl);
         await page.waitForLoadState('networkidle');
