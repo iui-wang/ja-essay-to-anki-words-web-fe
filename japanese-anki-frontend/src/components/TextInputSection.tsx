@@ -28,7 +28,7 @@ export const TextInputSection: React.FC<TextInputSectionProps> = ({
 
   return (
     <div className="flex gap-6">
-      {/* 单词书选择 */}
+      {/* Word book selection */}
       <div className="w-48">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Select Word Books</h3>
         <div className="space-y-3">
@@ -48,7 +48,7 @@ export const TextInputSection: React.FC<TextInputSectionProps> = ({
         </div>
       </div>
 
-      {/* 文本输入 */}
+      {/* Text input */}
       <div className="flex-1">
         <div className="mb-4">
           <label className="block text-lg font-medium text-gray-900 mb-2">

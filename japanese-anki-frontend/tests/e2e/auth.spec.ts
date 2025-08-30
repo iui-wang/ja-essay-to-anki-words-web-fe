@@ -1,92 +1,92 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('用户认证功能', () => {
+test.describe('User Authentication', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  test('显示登录/注册按钮', async ({ page }) => {
-    await expect(page.getByText('登录/注册')).toBeVisible();
+  test('display login/register button', async ({ page }) => {
+    await expect(page.getByText('Login/Register')).toBeVisible();
   });
 
-  test('打开登录模态框', async ({ page }) => {
-    await page.getByText('登录/注册').click();
-    await expect(page.getByText('登录')).toBeVisible();
-    await expect(page.getByText('用户名')).toBeVisible();
-    await expect(page.getByText('密码')).toBeVisible();
+  test('open login modal', async ({ page }) => {
+    await page.getByText('Login/Register').click();
+    await expect(page.getByText('Login')).toBeVisible();
+    await expect(page.getByText('Username')).toBeVisible();
+    await expect(page.getByText('Password')).toBeVisible();
   });
 
-  test('切换到注册模式', async ({ page }) => {
-    await page.getByText('登录/注册').click();
-    await page.getByText('没有账号？去注册').click();
-    await expect(page.getByText('注册')).toBeVisible();
-    await expect(page.getByText('邮箱')).toBeVisible();
+  test('switch to register mode', async ({ page }) => {
+    await page.getByText('Login/Register').click();
+    await page.getByText('No account? Register').click();
+    await expect(page.getByText('Register')).toBeVisible();
+    await expect(page.getByText('Email')).toBeVisible();
   });
 
-  test('用户注册流程', async ({ page }) => {
+  test('user registration flow', async ({ page }) => {
     const testUser = {
       username: `testuser_${Date.now()}`,
       email: `test_${Date.now()}@example.com`,
       password: 'testpass123'
     };
 
-    await page.getByText('登录/注册').click();
-    await page.getByText('没有账号？去注册').click();
+    await page.getByText('Login/Register').click();
+    await page.getByText('No account? Register').click();
     
-    await page.getByPlaceholder('请输入用户名').fill(testUser.username);
-    await page.getByPlaceholder('请输入邮箱').fill(testUser.email);
-    await page.getByPlaceholder('请输入密码').fill(testUser.password);
+    await page.getByPlaceholder('Enter username').fill(testUser.username);
+    await page.getByPlaceholder('Enter email').fill(testUser.email);
+    await page.getByPlaceholder('Enter password').fill(testUser.password);
     
-    await page.getByRole('button', { name: '注册' }).click();
+    await page.getByRole('button', { name: 'Register' }).click();
     
-    // 等待注册完成
+    // Wait for registration to complete
     await page.waitForTimeout(2000);
     
-    // 检查是否登录成功
-    await expect(page.getByText(`欢迎, ${testUser.username}`)).toBeVisible();
-    await expect(page.getByText('登出')).toBeVisible();
+    // Check if login successful
+    await expect(page.getByText(`Welcome, ${testUser.username}`)).toBeVisible();
+    await expect(page.getByText('Logout')).toBeVisible();
   });
 
-  test('用户登录流程', async ({ page }) => {
-    // 使用已注册的测试用户
+  test('user login flow', async ({ page }) => {
+    // Use already registered test user
     const testUser = {
       username: 'testuser',
       password: 'testpass123'
     };
 
-    await page.getByText('登录/注册').click();
+    await page.getByText('Login/Register').click();
     
-    await page.getByPlaceholder('请输入用户名').fill(testUser.username);
-    await page.getByPlaceholder('请输入密码').fill(testUser.password);
+    await page.getByPlaceholder('Enter username').fill(testUser.username);
+    await page.getByPlaceholder('Enter password').fill(testUser.password);
     
-    await page.getByRole('button', { name: '登录' }).click();
+    await page.getByRole('button', { name: 'Login' }).click();
     
-    // 等待登录完成
+    // Wait for login to complete
     await page.waitForTimeout(2000);
     
-    // 检查是否登录成功
-    await expect(page.getByText(`欢迎, ${testUser.username}`)).toBeVisible();
-    await expect(page.getByText('登出')).toBeVisible();
+    // Check if login successful
+    await expect(page.getByText(`Welcome, ${testUser.username}`)).toBeVisible();
+    await expect(page.getByText('Logout')).toBeVisible();
   });
 
-  test('用户登出功能', async ({ page }) => {
-    // 先登录
+  test('user logout function', async ({ page }) => {
+    // Login first
     const testUser = {
       username: 'testuser',
       password: 'testpass123'
     };
 
-    await page.getByText('登录/注册').click();
-    await page.getByPlaceholder('请输入用户名').fill(testUser.username);
-    await page.getByPlaceholder('请输入密码').fill(testUser.password);
-    await page.getByRole('button', { name: '登录' }).click();
+    await page.getByText('Login/Register').click();
+    await page.getByPlaceholder('Enter username').fill(testUser.username);
+    await page.getByPlaceholder('Enter password').fill(testUser.password);
+    await page.getByRole('button', { name: 'Login' }).click();
     
     await page.waitForTimeout(2000);
     
-    // 登出
-    await page.getByText('登出').click();
+    // Logout
+    await page.getByText('Logout').click();
     
-    // 检查是否回到未登录状态
-    await expect(page.getByText('登录/注册')).toBeVisible();
+    // Check if returned to unlogged state
+    await expect(page.getByText('Login/Register')).toBeVisible();
   });
 });

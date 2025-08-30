@@ -28,7 +28,7 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => {
-                  // 触发登录模态框的事件
+                  // Trigger login modal event
                   const event = new CustomEvent('showLoginModal');
                   window.dispatchEvent(event);
                 }}

@@ -54,10 +54,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await checkAuth();
         return { success: true };
       }
-      return { success: false, error: '登录失败，请重试' };
+      return { success: false, error: 'Login failed, please try again' };
     } catch (error: any) {
       console.error('Login failed:', error);
-      return { success: false, error: error.message || '登录失败，请重试' };
+      return { success: false, error: error.message || 'Login failed, please try again' };
     }
   };
 
@@ -68,10 +68,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await checkAuth();
         return { success: true };
       }
-      return { success: false, error: '注册失败，请重试' };
+      return { success: false, error: 'Registration failed, please try again' };
     } catch (error: any) {
       console.error('Registration failed:', error);
-      return { success: false, error: error.message || '注册失败，请重试' };
+      return { success: false, error: error.message || 'Registration failed, please try again' };
     }
   };
 

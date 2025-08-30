@@ -35,10 +35,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         onClose();
         setFormData({ username: '', email: '', password: '' });
       } else {
-        setError(result.error || (isLogin ? '登录失败' : '注册失败'));
+        setError(result.error || (isLogin ? 'Login failed' : 'Registration failed'));
       }
     } catch (error: any) {
-      setError(error.message || '操作失败，请稍后重试');
+      setError(error.message || 'Operation failed, please try again later');
     } finally {
       setLoading(false);
     }

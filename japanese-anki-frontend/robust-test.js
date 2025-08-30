@@ -1,4 +1,24 @@
 #!/usr/bin/env node
+/**
+ * 重申的健壮测试脚本 - 针对实际项目代码结构优化
+ * 
+ * 功能覆盖：
+ * 1. 随机用户注册
+ * 2. 自动/手动登录
+ * 3. 选择JLPT等级
+ * 4. 输入日语文本
+ * 5. 提交任务并轮询状态
+ * 6. 下载.apkg文件
+ * 
+ * 环境变量：
+ * - FRONTEND_URL: 前端服务器地址（默认：http://localhost:5173）
+ * - HEADLESS: 是否无头模式（默认：false）
+ * - SLOW_MO: 操作间隔时间（默认：1000ms）
+ * 
+ * 使用方法：
+ * npm run test 或 node robust-test.js
+ */
+
 import { chromium } from 'playwright';
 import { faker } from '@faker-js/faker';
 
@@ -30,24 +50,145 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// 通用截图函数
+// 重试逻辑包装器已移除 - 严格测试模式
+
+// 页面内容dump函数 - 用于调试
+async function dumpPageContent(page, stepName, stepNumber = null) {
+    try {
+        const timestamp = Date.now();
+        const stepPrefix = stepNumber ? `step-${stepNumber.toString().padStart(2, '0')}-` : '';
+        const dumpPath = `./debug/${stepPrefix}${stepName}-${timestamp}.txt`;
+        
+        // 确保debug目录存在
+        const fs = await import('fs');
+        if (!fs.existsSync('./debug')) {
+            fs.mkdirSync('./debug', { recursive: true });
+        }
+        
+        // 获取页面完整内容
+        const content = await page.content();
+        const title = await page.title();
+        const url = page.url();
+        
+        // 获取所有文本内容
+        const textContent = await page.evaluate(() => {
+            // 获取所有可见文本
+            const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function(node) {
+                        if (node.parentElement && 
+                            node.parentElement.offsetParent !== null &&
+                            node.textContent.trim().length > 0) {
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                },
+                false
+            );
+            
+            const texts = [];
+            let node;
+            while (node = walker.nextNode()) {
+                texts.push(node.textContent.trim());
+            }
+            return texts.filter(t => t.length > 0);
+        });
+        
+        // 获取错误消息
+        const errorMessages = await page.evaluate(() => {
+            const errors = [];
+            const errorSelectors = [
+                '.text-red-500', '.text-red-600', '.text-red-700',
+                '.error-message', '.alert-error', '.error',
+                '.text-green-500', '.text-green-600', '.text-green-700',
+                '.success-message', '.alert-success', '.success'
+            ];
+            
+            errorSelectors.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    if (el.textContent.trim()) {
+                        errors.push({
+                            selector: selector,
+                            text: el.textContent.trim(),
+                            className: el.className
+                        });
+                    }
+                });
+            });
+            return errors;
+        });
+        
+        // 获取表单状态
+        const formState = await page.evaluate(() => {
+            const inputs = Array.from(document.querySelectorAll('input'));
+            return inputs.map(input => ({
+                type: input.type,
+                name: input.name,
+                value: input.value,
+                placeholder: input.placeholder,
+                disabled: input.disabled
+            }));
+        });
+        
+        // 构建完整的dump内容
+        const dumpContent = `
+================ PAGE DUMP: ${stepName} ================
+时间: ${new Date().toISOString()}
+URL: ${url}
+标题: ${title}
+
+================ 文本内容 ================
+${textContent.join('\n')}
+
+================ 错误/提示消息 ================
+${JSON.stringify(errorMessages, null, 2)}
+
+================ 表单状态 ================
+${JSON.stringify(formState, null, 2)}
+
+================ 完整HTML ================
+${content}
+
+================ END DUMP ================
+`;
+        
+        fs.writeFileSync(dumpPath, dumpContent, 'utf8');
+        log(`📄 页面内容已保存: ${dumpPath}`);
+        
+        // 同时输出关键信息到控制台
+        if (errorMessages.length > 0) {
+            log("🔍 发现错误/提示消息:");
+            errorMessages.forEach(msg => log(`  - ${msg.text}`));
+        }
+        
+        return dumpPath;
+    } catch (error) {
+        log(`页面dump失败 (${stepName}):`, error.message);
+        return null;
+    }
+}
+
+// 简化的截图函数（保留用于参考）
 async function takeScreenshot(page, stepName, stepNumber = null) {
     try {
         const timestamp = Date.now();
         const stepPrefix = stepNumber ? `step-${stepNumber.toString().padStart(2, '0')}-` : '';
         const screenshotPath = `./screenshots/${stepPrefix}${stepName}-${timestamp}.png`;
         
-        // 确保截图目录存在
         const fs = await import('fs');
         if (!fs.existsSync('./screenshots')) {
             fs.mkdirSync('./screenshots', { recursive: true });
         }
         
         await page.screenshot({ path: screenshotPath, fullPage: true });
-        log(`📸 已截图保存【${stepName}】状态: ${screenshotPath}`);
+        log(`📸 截图: ${screenshotPath}`);
         return screenshotPath;
     } catch (error) {
-        log(`截图失败 (${stepName}):`, error.message);
+        log(`截图失败:`, error.message);
         return null;
     }
 }
@@ -66,67 +207,18 @@ function log(message, data = null) {
     }
 }
 
-// 强制关闭模态框的多种策略
-async function closeModalWithFallbacks(page) {
-    log("开始关闭模态框...");
+// 严格模式模态框关闭 - 只使用ESC键
+async function closeModal(page) {
+    log("关闭模态框...");
+    await page.keyboard.press('Escape');
+    await sleep(1000);
     
-    // 策略1: 查找关闭按钮
-    try {
-        const closeBtn = await page.locator('button:has-text("✕"), [aria-label="Close"], button:has-text("Close")').first();
-        if (await closeBtn.count() > 0) {
-            await closeBtn.click();
-            log("点击关闭按钮");
-            await sleep(1000);
-            return;
-        }
-    } catch (e) {
-        log("关闭按钮策略失败");
+    // 严格验证模态框已关闭
+    const modal = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50');
+    if (await modal.count() > 0) {
+        throw new Error("❌ 测试失败：模态框未成功关闭");
     }
-    
-    // 策略2: 点击背景遮罩
-    try {
-        const overlay = await page.locator('.fixed.inset-0.bg-black, .fixed.inset-0.bg-opacity-50');
-        if (await overlay.count() > 0) {
-            await overlay.click({ position: { x: 50, y: 50 } });
-            log("点击背景关闭");
-            await sleep(1000);
-            return;
-        }
-    } catch (e) {
-        log("背景点击策略失败");
-    }
-    
-    // 策略3: 按ESC键
-    try {
-        await page.keyboard.press('Escape');
-        log("按ESC键关闭");
-        await sleep(1000);
-    } catch (e) {
-        log("ESC键策略失败");
-    }
-    
-    // 策略4: 执行JS强制移除模态框
-    try {
-        await page.evaluate(() => {
-            const modals = document.querySelectorAll('.fixed.inset-0');
-            modals.forEach(modal => modal.remove());
-            
-            // 同时移除所有可能的遮罩层
-            const overlays = document.querySelectorAll('[class*="fixed"], [class*="absolute"], [class*="overlay"], [class*="modal"]');
-            overlays.forEach(overlay => {
-                if (overlay.style.position === 'fixed' || overlay.className.includes('fixed')) {
-                    overlay.remove();
-                }
-            });
-            
-            // 重置body的overflow
-            document.body.style.overflow = 'auto';
-        });
-        log("JS强制移除模态框和遮罩层");
-        await sleep(1000);
-    } catch (e) {
-        log("JS移除策略失败");
-    }
+    log("✅ 模态框已成功关闭");
 }
 
 // 主测试函数
@@ -136,10 +228,16 @@ async function runFullTest() {
     
     try {
         log("启动浏览器...");
+        const headless = process.env.HEADLESS === 'true';
+        const slowMo = parseInt(process.env.SLOW_MO) || 1000;
+        
         browser = await chromium.launch({ 
-            headless: false,
-            slowMo: 1000
+            headless: headless,
+            slowMo: slowMo,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] // 适合服务器环境
         });
+        
+        log(`浏览器配置: headless=${headless}, slowMo=${slowMo}ms`);
         
         page = await browser.newPage({
             viewport: { width: 1280, height: 720 }
@@ -149,88 +247,125 @@ async function runFullTest() {
         const user = generateRandomUser();
         log("生成随机用户数据:", user);
         
-        // 1. 访问首页
+        // 1. 访问首页 - 使用实际的开发服务器地址
         log("访问首页...");
-        await page.goto('http://104cf0ee.r3.cpolar.top');
+        const frontendUrl = process.env.FRONTEND_URL || 'http://179412be.r3.cpolar.top';
+        log(`使用前端地址: ${frontendUrl}`);
+        await page.goto(frontendUrl);
         await page.waitForLoadState('networkidle');
-        await takeScreenshot(page, 'homepage-loaded', 1);
+        await dumpPageContent(page, 'homepage-loaded', 1);
         
-        // 2. 点击登录/注册按钮
+        // 2. 点击登录/注册按钮 - 严格模式：直接执行，不重试
         log("点击登录/注册按钮...");
         await page.click('button:has-text("Login/Register")');
         await page.waitForTimeout(2000);
-        await takeScreenshot(page, 'login-modal-opened', 2);
         
-        // 3. 切换到注册模式
+        // 严格验证模态框已打开
+        const modal = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50');
+        if (await modal.count() === 0) {
+            throw new Error("❌ 测试失败：点击登录按钮后模态框未打开");
+        }
+        await dumpPageContent(page, 'login-modal-opened', 2);
+        
+        // 3. 切换到注册模式 - 使用实际的按钮文本
         log("切换到注册模式...");
         await page.click('button:has-text("No account? Register")');
         await page.waitForTimeout(1000);
-        await takeScreenshot(page, 'register-mode-selected', 3);
         
-        // 4. 填写注册信息 - 模拟输入用户名、密码、邮箱
+        // 检查是否成功切换到注册模式 - 检查h2标题
+        const registerTitle = await page.locator('h2:has-text("Register")');
+        if (await registerTitle.count() > 0) {
+            log("✅ 成功切换到注册模式");
+        } else {
+            throw new Error("❌ 切换到注册模式失败：未检测到注册模式界面");
+        }
+        
+        await dumpPageContent(page, 'register-mode-selected', 3);
+        
+        // 4. 填写注册信息 - 使用实际的表单结构
         log("填写注册信息...");
         log(`用户名: ${user.username}`);
         log(`邮箱: ${user.email}`);
         log(`密码: ${user.password.substring(0, 3)}...`);
         
+        // 使用更精确的选择器填写表单
         await page.fill('input[type="text"]', user.username);
         await page.fill('input[type="email"]', user.email);
         await page.fill('input[type="password"]', user.password);
-        await takeScreenshot(page, 'register-form-filled', 4);
+        await dumpPageContent(page, 'register-form-filled', 4);
         
-        // 5. 提交注册 - 模拟点击注册按钮
+        // 5. 提交注册 - 使用实际的提交按钮
         log("模拟点击注册按钮...");
         await page.click('button[type="submit"]:has-text("Register")');
         
-        // 等待注册响应 - 预期注册成功，网页自动切换到登陆界面
-        log("等待注册响应，预期注册成功并自动切换到登录界面...");
-        await page.waitForTimeout(5000);
-        await takeScreenshot(page, 'register-submitted', 5);
+        // 等待注册响应 - 根据实际API实现，注册成功后自动登录并关闭模态框
+        log("等待注册响应，预期注册成功并自动登录...");
+        await page.waitForTimeout(3000);
+        await dumpPageContent(page, 'register-submitted', 5);
         
-        // 检查是否成功切换到登录界面
-        const loginModeBtn = await page.locator('button:has-text("Have account? Login")');
-        if (await loginModeBtn.count() > 0) {
-            log("✅ 注册成功，网页已自动切换到登录界面");
-        } else {
-            log("⚠️  未检测到登录界面切换，继续测试...");
+        // 等待更长时间以确保注册完成
+        await page.waitForTimeout(5000);
+        
+        // 检查是否有错误消息显示
+        const errorMessage = await page.locator('.text-red-500, .text-red-600, .error-message');
+        if (await errorMessage.count() > 0) {
+            const errorText = await errorMessage.textContent();
+            log("❌ 注册失败，错误信息:", errorText);
+            await dumpPageContent(page, 'register-error', 6);
+            throw new Error(`注册失败: ${errorText}`);
         }
         
-        // 6. 等待模态框自动关闭或强制关闭
-        await page.waitForTimeout(3000);
-        await closeModalWithFallbacks(page);
+        // 检查注册是否成功 - 模态框应该消失，显示用户名
+        const modalCheck = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50');
+        const welcomeSpan = await page.locator('span:has-text("Welcome,")');
         
-        // 确保模态框完全关闭后再继续
-        await page.waitForSelector('.fixed.inset-0', { state: 'detached', timeout: 10000 }).catch(() => {
-            log("警告：模态框可能未完全关闭");
-        });
+        if (await modalCheck.count() === 0 && await welcomeSpan.count() > 0) {
+            log("✅ 注册成功，已自动登录");
+        } else {
+            // 如果模态框仍在，检查是否有成功提示
+            const successMessage = await page.locator('.text-green-500, .text-green-600, .success-message');
+            if (await successMessage.count() > 0) {
+                const successText = await successMessage.textContent();
+                log("注册成功提示:", successText);
+            }
+            
+            // 再等待一段时间看是否会自动关闭
+            await page.waitForTimeout(3000);
+            
+            // 最终检查模态框状态
+            const finalModalCount = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50').count();
+            if (finalModalCount > 0) {
+                log("模态框仍未关闭，继续后续步骤...");
+                await dumpPageContent(page, 'modal-still-open', 6);
+            } else {
+                log("✅ 模态框已自动关闭");
+            }
+        }
         
-        // 7. 等待页面加载完成
+        // 7. 检查登录状态
         await page.waitForTimeout(2000);
         
-        // 8. 检查是否已登录
+        // 检查是否已登录 - 查看导航栏中的用户欢迎信息
+        const userWelcomeText = await page.locator('span:has-text("Welcome,")');
         const loginButton = await page.locator('button:has-text("Login/Register")');
-        if (await loginButton.count() > 0) {
+        
+        if (await userWelcomeText.count() > 0) {
+            log("✅ 已成功登录");
+        } else if (await loginButton.count() > 0) {
             log("需要手动登录...");
             
-            // 确保模态框已完全关闭并等待可点击
-            await page.waitForSelector('.fixed.inset-0', { state: 'detached', timeout: 10000 }).catch(() => {});
-            await page.waitForLoadState('networkidle');
+            // 点击登录按钮打开模态框
+            await loginButton.click();
             await page.waitForTimeout(1000);
             
-            // 确保按钮可见且可点击
-            await loginButton.waitFor({ state: 'visible', timeout: 5000 });
-            await loginButton.scrollIntoViewIfNeeded();
-            await loginButton.click({ force: true });
-            await page.waitForTimeout(2000);
-            
-            // 确保在登录模式
-            const loginModeBtn = await page.locator('button:has-text("Have account? Login")');
-            if (await loginModeBtn.count() > 0) {
-                await loginModeBtn.click();
+            // 确保在登录模式（如果当前是注册模式则切换）
+            const switchToLogin = await page.locator('button:has-text("Have account? Login")');
+            if (await switchToLogin.count() > 0) {
+                await switchToLogin.click();
                 await page.waitForTimeout(1000);
             }
             
-            // 填写登录信息 - 使用刚刚注册的凭据
+            // 填写登录信息
             log("使用刚刚注册的凭据登录...");
             log(`用户名: ${user.username}`);
             log(`密码: ${user.password.substring(0, 3)}...`);
@@ -238,231 +373,243 @@ async function runFullTest() {
             await page.fill('input[type="text"]', user.username);
             await page.fill('input[type="password"]', user.password);
             
-            // 模拟点击登录按钮
-            log("模拟点击登录按钮...");
+            // 提交登录
+            log("提交登录...");
             await page.click('button[type="submit"]:has-text("Login")');
             
-            // 等待登录响应 - 预期登录成功，浮窗自动消失
-            log("等待登录响应，预期登录成功浮窗自动消失...");
-            await page.waitForTimeout(5000);
+            // 等待登录完成
+            await page.waitForTimeout(3000);
             await takeScreenshot(page, 'login-completed', 6);
             
-            // 检查登录是否成功 - 浮窗应当自动消失
-            const modalExists = await page.locator('.fixed.inset-0').count();
-            if (modalExists === 0) {
-                log("✅ 登录成功，浮窗已自动消失");
+            // 验证登录成功
+            const welcomeTextAfterLogin = await page.locator('span:has-text("Welcome,")');
+            if (await welcomeTextAfterLogin.count() > 0) {
+                log("✅ 登录成功");
             } else {
-                log("⚠️  浮窗可能未自动消失，强制关闭...");
-                await closeModalWithFallbacks(page);
+                throw new Error("❌ 登录失败");
             }
-        } else {
-            log("看起来已经登录成功");
         }
         
-        // 9. 选择单词书等级 - 选择N4和N5
+        // 8. 选择单词书等级 - 根据实际组件结构选择N4和N5
         log("选择单词书等级...");
         
-        // 选择N4和N5
-        const n4Checkbox = await page.locator('input[value="N4"]');
-        const n5Checkbox = await page.locator('input[value="N5"]');
+        // 等待页面加载完成
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
         
-        if (await n4Checkbox.count() > 0) {
-            await n4Checkbox.check();
+        // 查找N4和N5的checkbox - 使用实际的DOM结构
+        const n4Label = await page.locator('label:has-text("N4")');
+        const n5Label = await page.locator('label:has-text("N5")');
+        
+        if (await n4Label.count() > 0) {
+            await n4Label.click();
             log("已选择N4等级");
+        } else {
+            log("警告：未找到N4选项，可能已默认选中");
         }
         
-        if (await n5Checkbox.count() > 0) {
-            await n5Checkbox.check();
+        if (await n5Label.count() > 0) {
+            await n5Label.click();
             log("已选择N5等级");
+        } else {
+            log("警告：未找到N5选项，可能已默认选中");
         }
         await takeScreenshot(page, 'vocabulary-levels-selected', 7);
         
-        // 10. 输入日语文本 - 输入大约300字的日语文本
+        // 9. 输入日语文本 - 使用实际的textarea组件
         const japaneseText = generateJapaneseText();
         log("输入日语文本（约300字）:", japaneseText.substring(0, 100) + "...");
         log(`文本长度: ${japaneseText.length}字符`);
         
+        // 查找文本输入区域 - 使用实际的textarea选择器
         const textArea = await page.locator('textarea');
         if (await textArea.count() > 0) {
+            await textArea.click();
             await textArea.fill(japaneseText);
             log("✅ 已成功输入日语文本");
         } else {
-            log("⚠️  警告：未找到文本输入区域");
+            throw new Error("❌ 文本输入失败：未找到文本输入区域");
         }
         await takeScreenshot(page, 'japanese-text-entered', 8);
         
-        // 11. 提交任务 - 点击开始生成单词卡片
-        log("准备提交任务，点击开始生成单词卡片...");
+        // 10. 提交任务 - 点击Generate Flashcards按钮
+        log("准备提交任务，点击Generate Flashcards按钮...");
         
-        // 确保所有模态框都已关闭
-        await closeModalWithFallbacks(page);
-        await page.waitForSelector('.fixed.inset-0', { state: 'detached', timeout: 5000 }).catch(() => {});
-        
-        const submitTaskBtn = await page.locator('button:has-text("Generate Flashcards"), button:has-text("Submit"), button:has-text("开始生成")');
-        if (await submitTaskBtn.count() > 0) {
-            await submitTaskBtn.first().waitFor({ state: 'visible', timeout: 5000 });
-            await submitTaskBtn.first().scrollIntoViewIfNeeded();
-            await submitTaskBtn.first().click({ force: true });
-            log("✅ 已点击生成卡片按钮");
+        // 查找Generate Flashcards按钮
+        const submitBtn = await page.locator('button:has-text("Generate Flashcards")');
+        if (await submitBtn.count() > 0) {
+            // 检查按钮是否可用（不是disabled状态）
+            const isDisabled = await submitBtn.getAttribute('disabled');
+            if (isDisabled !== null) {
+                throw new Error("❌ 任务提交失败：按钮处于禁用状态，请检查文本和等级选择");
+            }
+            
+            try {
+                await submitBtn.click();
+                log("✅ 已点击Generate Flashcards按钮");
+            } catch (error) {
+                throw new Error("❌ 生成卡片按钮点击失败：" + error.message);
+            }
         } else {
-            log("⚠️  警告：未找到生成卡片按钮");
+            throw new Error("❌ 任务提交失败：未找到Generate Flashcards按钮");
         }
         await takeScreenshot(page, 'task-submitted', 9);
         
-        // 12. 等待任务创建并验证Task Queue中出现新任务
+        // 11. 等待任务创建并验证Task Queue中出现新任务
         log("等待任务创建，验证Task Queue中出现新任务...");
-        await sleep(3000);
+        await page.waitForTimeout(3000);
         
-        // 12. 等待任务创建并验证Task Queue中出现新任务
         let taskId = null;
         try {
-            log("验证Task Queue中出现新任务...");
-            
-            // 等待任务创建完成
-            await page.waitForTimeout(3000);
-            
-            // 强制刷新页面以加载任务列表
-            await page.reload();
-            await page.waitForLoadState('networkidle');
+            // 等待任务创建和页面更新
             await page.waitForTimeout(2000);
             
-            // 检查页面内容
-            const content = await page.textContent('body');
-            log("页面内容预览:", content?.substring(0, 300));
+            // 在Task Queue区域查找新任务
+            const taskQueueSection = await page.locator('h3:has-text("Task Queue")');
+            if (await taskQueueSection.count() === 0) {
+                throw new Error("❌ 未找到Task Queue区域");
+            }
             
-            // 查找任务元素 - 验证Task Queue中出现新任务
-            const taskElements = await page.$$('.bg-white.rounded-lg.border.border-gray-200');
-            log(`🔍 找到 ${taskElements.length} 个任务元素，验证Task Queue中出现新任务`);
+            // 查找任务卡片 - 使用实际的任务卡片结构
+            const taskCards = await page.locator('.bg-white.rounded-lg.border.border-gray-200');
+            const taskCount = await taskCards.count();
+            log(`🔍 找到 ${taskCount} 个任务卡片`);
             
-            if (taskElements.length > 0) {
+            if (taskCount > 0) {
                 log("✅ 发现任务，Task Queue中出现新任务");
-                for (let i = 0; i < Math.min(taskElements.length, 3); i++) {
-                    const taskElement = taskElements[i];
-                    const taskText = await taskElement.textContent();
-                    log(`任务 ${i+1} 详情:`, taskText?.substring(0, 200));
-                    
-                    // 尝试从文本中提取任务ID
-                    const idMatch = taskText?.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
-                    if (idMatch) {
-                        taskId = idMatch[0];
-                        log("🆔 成功获取任务ID:", taskId);
-                        break;
+                
+                // 检查最新的任务（通常是第一个）
+                const firstTask = taskCards.first();
+                const taskText = await firstTask.textContent();
+                log(`最新任务详情:`, taskText?.substring(0, 200));
+                
+                // 从任务文本中提取任务名称或ID
+                if (taskText && taskText.includes('Task_')) {
+                    const taskNameMatch = taskText.match(/Task_[^\n]+/);
+                    if (taskNameMatch) {
+                        taskId = taskNameMatch[0];
+                        log("🆔 成功获取任务名称:", taskId);
                     }
                 }
             } else {
                 // 检查是否显示"No tasks"消息
-                const noTasksMessage = await page.textContent('.text-center.py-8');
-                log("📋 无任务消息:", noTasksMessage);
+                const noTasksText = await page.locator('text=No tasks').count();
+                if (noTasksText > 0) {
+                    log("📋 显示无任务消息");
+                }
+                throw new Error("❌ 任务创建失败：Task Queue中未出现新任务");
             }
             
-            // 截图查看当前状态
             await takeScreenshot(page, 'task-created', 10);
         } catch (error) {
             log("❌ 任务创建检查失败:", error.message);
-            
-            // 截图查看当前状态
             await takeScreenshot(page, 'task-creation-error', 10);
+            throw error;
         }
         
-        // 13. 轮询任务状态 - 每10秒刷新界面检查任务
+        // 12. 轮询任务状态 - 每5秒检查一次（匹配组件轮询间隔）
         log("开始轮询任务状态...");
         let completed = false;
         let attempts = 0;
-        const maxAttempts = 18; // 18 * 10秒 = 3分钟
+        const maxAttempts = 36; // 36 * 5秒 = 3分钟
         
         while (!completed && attempts < maxAttempts) {
             attempts++;
             log(`第 ${attempts} 次检查任务状态，等待任务完成...`);
             
-            // 每10秒刷新界面获取最新状态
-            await page.reload();
-            await page.waitForLoadState('networkidle');
-            await page.waitForTimeout(3000);
+            // 等待5秒（匹配组件的POLLING_INTERVAL）
+            await page.waitForTimeout(5000);
             
-            // 查找任务状态 - 使用正确的选择器
-            const taskElements = await page.$$('.bg-white.rounded-lg.border.border-gray-200');
-            log(`找到 ${taskElements.length} 个任务`);
+            // 查找任务卡片
+            const taskCards = await page.locator('.bg-white.rounded-lg.border.border-gray-200');
+            const taskCount = await taskCards.count();
+            log(`找到 ${taskCount} 个任务卡片`);
             
             // 每次检查时截图记录状态
             await takeScreenshot(page, `task-status-check-attempt-${attempts}`, 10 + attempts);
             
-            for (let taskElement of taskElements) {
-                const taskText = await taskElement.textContent();
-                log(`任务详情: ${taskText}`);
+            if (taskCount > 0) {
+                // 检查最新的任务（通常是第一个）
+                const firstTask = taskCards.first();
+                const taskText = await firstTask.textContent();
+                log(`任务状态: ${taskText}`);
                 
                 if (taskText && taskText.includes('Completed')) {
                     log("任务已完成！准备下载...");
                     completed = true;
                     await takeScreenshot(page, 'task-completed', 20);
                     
-                    // 模拟鼠标点击任务
-                    log("模拟鼠标点击任务...");
-                    await taskElement.click();
-                    await sleep(2000);
-                    
-                    // 查找下载按钮 - 使用更具体的选择器
-                    const downloadBtn = await taskElement.$('button:has-text("Download"), .bg-blue-600, button:has-text("下载")');
-                    if (downloadBtn) {
-                        log("找到下载按钮，准备下载文件...");
+                    // 查找Download按钮 - 使用实际组件结构
+                    const downloadBtn = await firstTask.locator('button:has-text("Download")');
+                    if (await downloadBtn.count() > 0) {
+                        log("找到Download按钮，准备下载文件...");
                         
-                        // 设置下载行为
+                        // 设置下载事件监听
                         const downloadPromise = page.waitForEvent('download');
                         await downloadBtn.click();
                         
                         const download = await downloadPromise;
-                        const downloadPath = `./downloads/downloaded-${Date.now()}.apkg`;
+                        const suggestedFilename = download.suggestedFilename();
+                        const downloadPath = `./downloads/${suggestedFilename || 'downloaded-anki-cards.apkg'}`;
+                        
+                        // 确保下载目录存在
+                        const fs = await import('fs');
+                        if (!fs.existsSync('./downloads')) {
+                            fs.mkdirSync('./downloads', { recursive: true });
+                        }
                         
                         await download.saveAs(downloadPath);
                         log(`文件已下载到: ${downloadPath}`);
                         await takeScreenshot(page, 'file-downloaded', 21);
                         
-                        // 检查文件
-                        const fs = await import('fs');
+                        // 验证下载的文件
                         if (fs.existsSync(downloadPath)) {
                             const stats = fs.statSync(downloadPath);
-                            log(`下载成功！文件大小: ${stats.size} 字节，预期.apkg格式`);
+                            log(`✅ 下载成功！文件大小: ${stats.size} 字节`);
                             
-                            // 验证文件扩展名
                             if (downloadPath.endsWith('.apkg')) {
-                                log("✅ 成功下载.apkg文件！");
+                                log("✅ 文件格式正确（.apkg）");
                             } else {
-                                log("⚠️  警告：文件扩展名不是.apkg");
+                                log("⚠️ 文件扩展名不是.apkg，但下载成功");
                             }
+                        } else {
+                            throw new Error("❌ 下载失败：文件未保存到指定路径");
                         }
                     } else {
-                        log("⚠️  警告：任务完成但未找到下载按钮");
+                        throw new Error("❌ 下载失败：任务完成但未找到Download按钮");
                     }
                     break;
-                } else if (taskText && taskText.includes('失败')) {
+                } else if (taskText && (taskText.includes('Failed') || taskText.includes('失败'))) {
                     log("❌ 任务失败！", taskText);
                     throw new Error("任务处理失败: " + taskText);
-                } else if (taskText && taskText.includes('processing')) {
+                } else if (taskText && (taskText.includes('Processing') || taskText.includes('处理中'))) {
                     log("⏳ 任务处理中...");
-                } else if (taskText && taskText.includes('pending')) {
+                } else if (taskText && (taskText.includes('Pending') || taskText.includes('等待'))) {
                     log("⏳ 任务等待中...");
                 }
+            } else {
+                log("⚠️ 未找到任务卡片");
             }
             
             if (!completed && attempts < maxAttempts) {
-                log(`任务未完成，等待10秒后重试... (剩余尝试: ${maxAttempts - attempts}次)`);
-                await sleep(10000);
+                log(`任务未完成，等待5秒后重试... (剩余尝试: ${maxAttempts - attempts}次)`);
             }
         }
         
         if (!completed) {
-            log("⚠️  警告：任务未完成，但主要功能已验证");
+            throw new Error("❌ 任务处理失败：在规定时间内任务未完成");
         }
         
         log("🎉 测试流程验证完成！所有功能测试通过：");
-        log("   ✅ 1. 随机生成账号、密码、邮箱");
-        log("   ✅ 2. 注册成功，网页自动切换到登陆界面");
-        log("   ✅ 3. 使用注册凭据登录成功，浮窗自动消失");
-        log("   ✅ 4. 选择N4和N5等级");
-        log("   ✅ 5. 输入300字日语文本");
-        log("   ✅ 6. 点击生成单词卡片，Task Queue出现新任务");
-        log("   ✅ 7. 每10秒刷新检查任务状态");
-        log("   ✅ 8. 任务完成后模拟点击下载.apkg文件");
-        log("   ✅ 9. 成功下载.apkg文件");
+        log("   ✅ 1. 随机生成用户信息并成功注册");
+        log("   ✅ 2. 注册后自动登录或手动登录成功");
+        log("   ✅ 3. 选择N4和N5单词书等级");
+        log("   ✅ 4. 输入日语文本（约300字符）");
+        log("   ✅ 5. 点击Generate Flashcards按钮提交任务");
+        log("   ✅ 6. Task Queue中成功创建新任务");
+        log("   ✅ 7. 轮询任务状态直到完成（每5秒检查）");
+        log("   ✅ 8. 任务完成后成功下载.apkg文件");
+        log("   ✅ 9. 文件保存到本地downloads目录");
         
     } catch (error) {
         log("测试过程中发生错误:", error.message);

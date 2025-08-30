@@ -1,155 +1,155 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('集成测试', () => {
+test.describe('Integration Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     
-    // 登录
-    await page.getByText('登录/注册').click();
-    await page.getByPlaceholder('请输入用户名').fill('testuser');
-    await page.getByPlaceholder('请输入密码').fill('testpass123');
-    await page.getByRole('button', { name: '登录' }).click();
+    // Login
+    await page.getByText('Login/Register').click();
+    await page.getByPlaceholder('Enter username').fill('testuser');
+    await page.getByPlaceholder('Enter password').fill('testpass123');
+    await page.getByRole('button', { name: 'Login' }).click();
     
     await page.waitForTimeout(2000);
   });
 
-  test('完整用户流程', async ({ page }) => {
-    // 1. 登录验证
-    await expect(page.getByText('欢迎, testuser')).toBeVisible();
+  test('complete user flow', async ({ page }) => {
+    // 1. Login verification
+    await expect(page.getByText('Welcome, testuser')).toBeVisible();
 
-    // 2. 输入文本和选择单词书
+    // 2. Input text and select word books
     const testText = '今日はとても良い天気ですね。これはテスト用の日本語文章です。';
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill(testText);
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill(testText);
     
-    // 选择N3和N4
+    // Select N3 and N4
     await page.getByLabel('N1').uncheck();
     await page.getByLabel('N2').uncheck();
     await page.getByLabel('N5').uncheck();
     await page.getByLabel('N3').check();
     await page.getByLabel('N4').check();
 
-    // 3. 创建任务
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+    // 3. Create task
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
-    // 等待任务创建
+    // Wait for task creation
     await page.waitForTimeout(2000);
 
-    // 4. 验证任务创建成功
-    await expect(page.getByPlaceholder('在这里输入或粘贴日语文本...')).toHaveValue('');
+    // 4. Verify task creation success
+    await expect(page.getByPlaceholder('Enter or paste Japanese text here...')).toHaveValue('');
     await expect(page.getByText('これはテスト用の日本語文章です')).toBeVisible();
-    await expect(page.getByText('等级: N3, N4')).toBeVisible();
+    await expect(page.getByText('Level: N3, N4')).toBeVisible();
 
-    // 5. 验证任务状态
-    const statusElement = page.getByText(/等待处理|处理中|已完成/);
+    // 5. Verify task status
+    const statusElement = page.getByText(/Pending|Processing|Completed/);
     await expect(statusElement.first()).toBeVisible();
   });
 
-  test('多个任务创建和管理', async ({ page }) => {
+  test('multiple task creation and management', async ({ page }) => {
     const tasks = [
-      '第一篇文章：今日はとても良い天気です。',
-      '第二篇文章：明日は雨が降るかもしれません。',
-      '第三篇文章：昨日は友達と映画を見ました。'
+      'First article: 今日はとても良い天気です。',
+      'Second article: 明日は雨が降るかもしれません。',
+      'Third article: 昨日は友達と映画を見ました。'
     ];
 
-    // 创建多个任务
+    // Create multiple tasks
     for (const taskText of tasks) {
-      await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill(taskText);
-      await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+      await page.getByPlaceholder('Enter or paste Japanese text here...').fill(taskText);
+      await page.getByRole('button', { name: 'Generate Flashcards' }).click();
       await page.waitForTimeout(1000);
     }
 
-    // 等待所有任务加载
+    // Wait for all tasks to load
     await page.waitForTimeout(2000);
 
-    // 验证所有任务都在队列中
+    // Verify all tasks are in the queue
     for (const taskText of tasks) {
       await expect(page.getByText(taskText.substring(0, 20))).toBeVisible();
     }
 
-    // 验证任务数量
-    const taskCards = page.locator('.card').locator('text=/等级: N4, N5/');
+    // Verify task count
+    const taskCards = page.locator('.card').locator('text=/Level: N4, N5/');
     await expect(taskCards).toHaveCount(3);
   });
 
-  test('错误处理和验证', async ({ page }) => {
-    // 测试1: 空文本提交
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+  test('error handling and validation', async ({ page }) => {
+    // Test 1: Empty text submission
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
-    // 应该显示提示
+    // Should show prompt
     page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('请输入日语文本');
+      expect(dialog.message()).toContain('Please enter Japanese text');
       await dialog.accept();
     });
 
-    // 测试2: 未选择单词书
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill('测试文本');
+    // Test 2: No word books selected
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill('Test text');
     await page.getByLabel('N4').uncheck();
     await page.getByLabel('N5').uncheck();
     
-    // 创建按钮应该被禁用
-    await expect(page.getByRole('button', { name: '开始制作单词卡片' })).toBeDisabled();
+    // Create button should be disabled
+    await expect(page.getByRole('button', { name: 'Generate Flashcards' })).toBeDisabled();
   });
 
-  test('任务状态轮询', async ({ page }) => {
-    // 创建任务
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill('测试轮询功能');
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+  test('task status polling', async ({ page }) => {
+    // Create task
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill('Test polling functionality');
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
     await page.waitForTimeout(2000);
 
-    // 获取初始状态
-    const initialStatus = await page.getByText(/等待处理|处理中|已完成/).first().textContent();
+    // Get initial status
+    const initialStatus = await page.getByText(/Pending|Processing|Completed/).first().textContent();
     
-    // 等待轮询更新
+    // Wait for polling update
     await page.waitForTimeout(6000);
     
-    // 检查状态是否更新（可能需要后端支持）
-    const currentStatus = await page.getByText(/等待处理|处理中|已完成/).first().textContent();
+    // Check if status updated (may require backend support)
+    const currentStatus = await page.getByText(/Pending|Processing|Completed/).first().textContent();
     
-    // 状态应该保持不变或更新
-    expect(['等待处理', '处理中', '已完成']).toContain(currentStatus);
+    // Status should remain the same or update
+    expect(['Pending', 'Processing', 'Completed']).toContain(currentStatus);
   });
 
-  test('登录状态持久化', async ({ page, context }) => {
-    // 验证已登录
-    await expect(page.getByText('欢迎, testuser')).toBeVisible();
+  test('login state persistence', async ({ page, context }) => {
+    // Verify logged in
+    await expect(page.getByText('Welcome, testuser')).toBeVisible();
 
-    // 创建任务
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill('持久化测试');
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+    // Create task
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill('Persistence test');
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
     await page.waitForTimeout(2000);
 
-    // 刷新页面
+    // Refresh page
     await page.reload();
     await page.waitForTimeout(1000);
 
-    // 验证仍然登录
-    await expect(page.getByText('欢迎, testuser')).toBeVisible();
+    // Verify still logged in
+    await expect(page.getByText('Welcome, testuser')).toBeVisible();
     
-    // 验证任务队列仍然存在
-    await expect(page.getByText('持久化测试')).toBeVisible();
+    // Verify task queue still exists
+    await expect(page.getByText('Persistence test')).toBeVisible();
   });
 
-  test('登出后清除状态', async ({ page }) => {
-    // 创建任务
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill('登出测试');
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+  test('state cleared after logout', async ({ page }) => {
+    // Create task
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill('Logout test');
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
     await page.waitForTimeout(2000);
 
-    // 登出
-    await page.getByText('登出').click();
+    // Logout
+    await page.getByText('Logout').click();
     await page.waitForTimeout(1000);
 
-    // 验证回到未登录状态
-    await expect(page.getByText('登录/注册')).toBeVisible();
+    // Verify back to logged out state
+    await expect(page.getByText('Login/Register')).toBeVisible();
     
-    // 验证需要重新登录才能创建任务
-    await page.getByPlaceholder('在这里输入或粘贴日语文本...').fill('新任务');
-    await page.getByRole('button', { name: '开始制作单词卡片' }).click();
+    // Verify need to login again to create task
+    await page.getByPlaceholder('Enter or paste Japanese text here...').fill('New task');
+    await page.getByRole('button', { name: 'Generate Flashcards' }).click();
     
-    // 应该显示登录模态框
-    await expect(page.getByText('登录')).toBeVisible();
+    // Should show login modal
+    await expect(page.getByText('Login')).toBeVisible();
   });
 });

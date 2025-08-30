@@ -17,7 +17,7 @@ export const TaskQueue: React.FC<TaskQueueProps> = ({ tasks, setTasks, onDownloa
   }, []);
 
   useEffect(() => {
-    // 轮询处理中的任务
+    // Poll processing tasks
     const processingTasks = tasks.filter(task => task.status === 'processing' || task.status === 'pending');
     
     if (processingTasks.length > 0) {

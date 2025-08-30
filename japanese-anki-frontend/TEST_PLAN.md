@@ -1,199 +1,199 @@
-# 日语Anki卡片生成器 - 测试计划
+# Japanese Anki Card Generator - Test Plan
 
-## 项目概述
-基于React TypeScript构建的现代前端应用，用于日语文章转Anki卡片生成。
+## Project Overview
+Modern frontend application built with React TypeScript for converting Japanese articles into Anki flashcards.
 
-## 功能测试清单
+## Function Test Checklist
 
-### ✅ 已完成的核心功能
+### ✅ Completed Core Features
 
-#### 1. 用户认证功能
-- [x] 用户注册
-- [x] 用户登录
-- [x] 用户登出
-- [x] 登录状态持久化
-- [x] 未登录用户提示
+#### 1. User Authentication Features
+- [x] User registration
+- [x] User login
+- [x] User logout
+- [x] Login state persistence
+- [x] Prompt for unlogged users
 
-#### 2. 文本输入与单词书选择
-- [x] 日语文本输入区域
-- [x] JLPT等级选择 (N1-N5)
-- [x] 多选单词书功能
-- [x] 输入验证
-- [x] 滚动条支持
+#### 2. Text Input and Word Book Selection
+- [x] Japanese text input area
+- [x] JLPT level selection (N1-N5)
+- [x] Multi-select word book functionality
+- [x] Input validation
+- [x] Scrollbar support
 
-#### 3. 任务创建与管理
-- [x] 创建解析任务
-- [x] 实时任务状态跟踪
-- [x] 任务队列显示
-- [x] 进度条显示
-- [x] 自动轮询更新
+#### 3. Task Creation and Management
+- [x] Create parsing tasks
+- [x] Real-time task status tracking
+- [x] Task queue display
+- [x] Progress bar display
+- [x] Automatic polling updates
 
-#### 4. 文件下载功能
-- [x] Anki卡片包(APKG)下载
-- [x] 下载文件名自动生成
-- [x] 下载状态验证
+#### 4. File Download Features
+- [x] Anki card package (APKG) download
+- [x] Automatic download file naming
+- [x] Download status validation
 
-#### 5. 用户界面
-- [x] 响应式设计
-- [x] 现代化UI设计
-- [x] 顶部导航栏
-- [x] 任务队列侧边栏
-- [x] 错误提示与验证
+#### 5. User Interface
+- [x] Responsive design
+- [x] Modern UI design
+- [x] Top navigation bar
+- [x] Task queue sidebar
+- [x] Error prompts and validation
 
-## 手动测试步骤
+## Manual Test Steps
 
-### 测试环境设置
-1. 启动后端服务: `cd ../ja-essay-to-anki-words-web-be && python run.py`
-2. 启动前端服务: `npm run dev`
+### Test Environment Setup
+1. Start backend service: `cd ../ja-essay-to-anki-words-web-be && python run.py`
+2. Start frontend service: `npm run dev`
 
-### 测试用例
+### Test Cases
 
-#### 1. 用户认证测试
-**步骤1: 用户注册**
-1. 访问 http://localhost:5173
-2. 点击"登录/注册"
-3. 点击"没有账号？去注册"
-4. 输入用户名、邮箱和密码
-5. 点击"注册"
-6. 验证注册成功后自动登录
+#### 1. User Authentication Test
+**Step 1: User Registration**
+1. Visit http://localhost:5173
+2. Click "Login/Register"
+3. Click "No account? Register"
+4. Enter username, email, and password
+5. Click "Register"
+6. Verify successful registration and auto-login
 
-**步骤2: 用户登录**
-1. 登出当前用户
-2. 点击"登录/注册"
-3. 输入已注册用户名和密码
-4. 点击"登录"
-5. 验证登录成功显示欢迎信息
+**Step 2: User Login**
+1. Logout current user
+2. Click "Login/Register"
+3. Enter registered username and password
+4. Click "Login"
+5. Verify successful login displays welcome message
 
-**步骤3: 用户登出**
-1. 点击"登出"
-2. 验证回到未登录状态
+**Step 3: User Logout**
+1. Click "Logout"
+2. Verify return to unlogged state
 
-#### 2. 任务创建测试
-**步骤1: 未登录用户**
-1. 确保处于未登录状态
-2. 输入日语文本
-3. 选择单词书
-4. 点击"开始制作单词卡片"
-5. 验证弹出登录提示
+#### 2. Task Creation Test
+**Step 1: Unlogged User**
+1. Ensure in unlogged state
+2. Enter Japanese text
+3. Select word books
+4. Click "Generate Flashcards"
+5. Verify login prompt appears
 
-**步骤2: 输入验证**
-1. 登录用户
-2. 尝试空文本提交
-3. 尝试未选择单词书提交
-4. 验证相应的错误提示
+**Step 2: Input Validation**
+1. Login user
+2. Try empty text submission
+3. Try submission without selecting word books
+4. Verify corresponding error prompts
 
-**步骤3: 正常创建任务**
-1. 输入日语文本
-2. 选择N4和N5单词书
-3. 点击"开始制作单词卡片"
-4. 验证任务创建成功
-5. 验证文本区域清空
-6. 验证任务出现在队列中
+**Step 3: Normal Task Creation**
+1. Enter Japanese text
+2. Select N4 and N5 word books
+3. Click "Generate Flashcards"
+4. Verify successful task creation
+5. Verify text area cleared
+6. Verify task appears in queue
 
-#### 3. 任务队列测试
-**步骤1: 任务显示**
-1. 创建多个任务
-2. 验证所有任务正确显示
-3. 验证任务信息完整（名称、状态、等级、时间）
+#### 3. Task Queue Test
+**Step 1: Task Display**
+1. Create multiple tasks
+2. Verify all tasks display correctly
+3. Verify complete task information (name, status, levels, time)
 
-**步骤2: 状态更新**
-1. 观察任务状态从"等待处理"到"处理中"到"已完成"
-2. 验证进度条更新
-3. 验证完成后显示下载按钮
+**Step 2: Status Updates**
+1. Observe task status from "Pending" to "Processing" to "Completed"
+2. Verify progress bar updates
+3. Verify download button appears after completion
 
-**步骤3: 文件下载**
-1. 等待任务完成
-2. 点击"下载"按钮
-3. 验证文件正确下载
-4. 验证文件名格式正确
+**Step 3: File Download**
+1. Wait for task completion
+2. Click "Download" button
+3. Verify file downloads correctly
+4. Verify correct file name format
 
-#### 4. 响应式设计测试
-**步骤1: 桌面端**
-1. 在1920x1080分辨率下访问
-2. 验证左右分栏布局
-3. 验证所有元素显示正常
+#### 4. Responsive Design Test
+**Step 1: Desktop**
+1. Visit at 1920x1080 resolution
+2. Verify left-right split layout
+3. Verify all elements display normally
 
-**步骤2: 移动端**
-1. 在375x667分辨率下访问
-2. 验证垂直布局
-3. 验证滚动功能正常
+**Step 2: Mobile**
+1. Visit at 375x667 resolution
+2. Verify vertical layout
+3. Verify scrolling functions normally
 
-#### 5. 错误处理测试
-**步骤1: 网络错误**
-1. 断开网络连接
-2. 尝试创建任务
-3. 验证错误提示
+#### 5. Error Handling Test
+**Step 1: Network Error**
+1. Disconnect network
+2. Try creating task
+3. Verify error prompt
 
-**步骤2: 后端异常**
-1. 停止后端服务
-2. 尝试创建任务
-3. 验证错误处理
+**Step 2: Backend Exception**
+1. Stop backend service
+2. Try creating task
+3. Verify error handling
 
-## 性能测试
+## Performance Testing
 
-### 加载性能
-- 首屏加载时间: < 3秒
-- 静态资源大小优化
-- 代码分割实现
+### Loading Performance
+- First screen loading time: < 3 seconds
+- Static resource size optimization
+- Code splitting implemented
 
-### 交互性能
-- 按钮响应时间: < 100ms
-- 滚动流畅度: 60fps
-- 任务状态更新: 5秒轮询
+### Interaction Performance
+- Button response time: < 100ms
+- Scroll smoothness: 60fps
+- Task status updates: 5 second polling
 
-## 兼容性测试
+## Compatibility Testing
 
-### 浏览器支持
-- [x] Chrome (最新版)
-- [x] Firefox (最新版)
-- [x] Safari (最新版)
-- [x] Edge (最新版)
+### Browser Support
+- [x] Chrome (latest)
+- [x] Firefox (latest)
+- [x] Safari (latest)
+- [x] Edge (latest)
 
-### 设备支持
-- [x] 桌面端 (1920x1080)
-- [x] 平板端 (768x1024)
-- [x] 移动端 (375x667)
+### Device Support
+- [x] Desktop (1920x1080)
+- [x] Tablet (768x1024)
+- [x] Mobile (375x667)
 
-## 安全测试
+## Security Testing
 
-### 输入验证
-- [x] XSS防护
-- [x] 输入长度限制
-- [x] 特殊字符处理
+### Input Validation
+- [x] XSS protection
+- [x] Input length limits
+- [x] Special character handling
 
-### 认证安全
-- [x] Token存储安全
-- [x] 登录状态验证
-- [x] 敏感信息保护
+### Authentication Security
+- [x] Secure token storage
+- [x] Login state validation
+- [x] Sensitive information protection
 
-## 测试通过标准
+## Test Pass Criteria
 
-1. **功能完整性**: 所有核心功能正常工作
-2. **用户体验**: 界面友好，操作流畅
-3. **错误处理**: 异常情况有明确提示
-4. **性能要求**: 响应时间在可接受范围内
-5. **兼容性**: 主要浏览器和设备正常显示
+1. **Function Completeness**: All core functions work normally
+2. **User Experience**: Friendly interface, smooth operation
+3. **Error Handling**: Clear prompts for abnormal situations
+4. **Performance Requirements**: Response time within acceptable range
+5. **Compatibility**: Normal display on major browsers and devices
 
-## 已知限制
+## Known Limitations
 
-1. **Playwright测试**: 由于系统依赖限制，自动化测试需手动执行
-2. **后端依赖**: 需要后端服务正常运行
-3. **网络要求**: 需要稳定的网络连接
+1. **Playwright Tests**: Due to system dependency limitations, automated tests need manual execution
+2. **Backend Dependency**: Requires backend service to run normally
+3. **Network Requirements**: Requires stable network connection
 
-## 测试记录表
+## Test Record Table
 
-| 测试项目 | 测试日期 | 测试结果 | 备注 |
-|----------|----------|----------|------|
-| 用户注册 | 待测试 | 待填写 | - |
-| 用户登录 | 待测试 | 待填写 | - |
-| 任务创建 | 待测试 | 待填写 | - |
-| 任务队列 | 待测试 | 待填写 | - |
-| 文件下载 | 待测试 | 待填写 | - |
-| 响应式设计 | 待测试 | 待填写 | - |
+| Test Item | Test Date | Test Result | Notes |
+|-----------|-----------|-----------|------|
+| User Registration | To test | To fill | - |
+| User Login | To test | To fill | - |
+| Task Creation | To test | To fill | - |
+| Task Queue | To test | To fill | - |
+| File Download | To test | To fill | - |
+| Responsive Design | To test | To fill | - |
 
-## 后续测试建议
+## Future Test Recommendations
 
-1. **自动化测试**: 在完整环境中运行Playwright测试
-2. **性能优化**: 使用Lighthouse进行性能分析
-3. **用户测试**: 邀请真实用户进行体验测试
-4. **边界测试**: 测试极端情况下的应用表现
+1. **Automated Testing**: Run Playwright tests in complete environment
+2. **Performance Optimization**: Use Lighthouse for performance analysis
+3. **User Testing**: Invite real users for experience testing
+4. **Boundary Testing**: Test application behavior under extreme conditions

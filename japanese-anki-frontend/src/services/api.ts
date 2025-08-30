@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
 
-const API_BASE_URL = 'http://32d064c9.r3.cpolar.top';
+const API_BASE_URL = 'http://22d1c1b3.r6.cpolar.cn';
 
 export interface User {
   id: string;
@@ -52,7 +52,7 @@ class ApiService {
       timeout: 10000,
     });
 
-    // 请求拦截器添加token
+    // Request interceptor to add token
     this.client.interceptors.request.use((config) => {
       const token = localStorage.getItem('auth_token');
       if (token) {
@@ -61,7 +61,7 @@ class ApiService {
       return config;
     });
 
-    // 响应拦截器处理错误
+    // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
@@ -74,7 +74,7 @@ class ApiService {
     );
   }
 
-  // 认证相关
+  // Authentication related
   async login(username: string, password: string): Promise<LoginResponse> {
     try {
       const response = await this.client.post('/api/auth/login', { username, password });
@@ -83,21 +83,21 @@ class ApiService {
       }
       return response.data;
     } catch (error: any) {
-      // 提取后端返回的详细错误信息
+      // Extract detailed error messages from backend
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       } else if (error.response?.data?.error) {
         throw new Error(error.response.data.error);
       } else if (error.response?.status === 401) {
-        throw new Error('用户名或密码错误');
+        throw new Error('Invalid username or password');
       } else if (error.response?.status === 400) {
-        throw new Error('请求格式错误，请检查输入');
+        throw new Error('Invalid request format, please check input');
       } else if (error.response?.status === 429) {
-        throw new Error('登录尝试过于频繁，请稍后再试');
+        throw new Error('Too many login attempts, please try again later');
       } else if (error.response?.status >= 500) {
-        throw new Error('服务器内部错误，请稍后重试');
+        throw new Error('Server internal error, please try again later');
       } else {
-        throw new Error('网络连接失败，请检查网络后重试');
+        throw new Error('Network connection failed, please check your network and try again');
       }
     }
   }
@@ -106,31 +106,31 @@ class ApiService {
     try {
       const response = await this.client.post('/api/auth/register', { username, email, password });
       if (response.data?.user_id) {
-        // 注册成功后自动登录
+        // Auto login after successful registration
         const loginResponse = await this.login(username, password);
         return loginResponse;
       }
       return response.data;
     } catch (error: any) {
-      // 提取后端返回的详细错误信息
+      // Extract detailed error messages from backend
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       } else if (error.response?.data?.error) {
         throw new Error(error.response.data.error);
       } else if (error.response?.data?.username) {
-        throw new Error(`用户名问题: ${error.response.data.username.join(', ')}`);
+        throw new Error(`Username issue: ${error.response.data.username.join(', ')}`);
       } else if (error.response?.data?.email) {
-        throw new Error(`邮箱问题: ${error.response.data.email.join(', ')}`);
+        throw new Error(`Email issue: ${error.response.data.email.join(', ')}`);
       } else if (error.response?.data?.password) {
-        throw new Error(`密码问题: ${error.response.data.password.join(', ')}`);
+        throw new Error(`Password issue: ${error.response.data.password.join(', ')}`);
       } else if (error.response?.status === 409) {
-        throw new Error('用户名或邮箱已被注册');
+        throw new Error('Username or email already registered');
       } else if (error.response?.status === 400) {
-        throw new Error('注册信息格式错误，请检查输入');
+        throw new Error('Invalid registration format, please check input');
       } else if (error.response?.status >= 500) {
-        throw new Error('服务器内部错误，请稍后重试');
+        throw new Error('Server internal error, please try again later');
       } else {
-        throw new Error('网络连接失败，请检查网络后重试');
+        throw new Error('Network connection failed, please check your network and try again');
       }
     }
   }
@@ -151,7 +151,7 @@ class ApiService {
     return this.client.get('/api/auth/profile').then(res => res.data);
   }
 
-  // 任务相关
+  // Task related
   async createTask(text: string, jlptLevels: string[], taskName: string) {
     return this.client.post('/api/tasks/create', {
       text,
@@ -172,7 +172,7 @@ class ApiService {
     return this.client.get('/api/tasks/stats').then(res => res.data);
   }
 
-  // 下载相关
+  // Download related
   async downloadFile(taskId: string): Promise<Blob> {
     const response = await this.client.get(`/api/download/${taskId}`, {
       responseType: 'blob'

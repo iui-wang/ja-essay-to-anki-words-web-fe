@@ -48,7 +48,7 @@ function AppContent() {
       
       if (response?.data?.task_id) {
         setText('');
-        // 重新加载任务列表
+        // Reload task list
         const tasksResponse = await api.getTasks();
         if (tasksResponse?.data?.tasks) {
           setTasks(tasksResponse.data.tasks);

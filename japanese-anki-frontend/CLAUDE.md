@@ -1,87 +1,87 @@
-# Claude Code 项目指南 - 日语Anki卡片生成器前端
+# Claude Code Project Guide - Japanese Anki Card Generator Frontend
 
-## 项目概览
-基于React TypeScript的现代化前端应用，用于日语文章转Anki卡片生成，支持用户认证、任务管理和实时状态跟踪。
+## Project Overview
+Modern frontend application built with React TypeScript for converting Japanese articles to Anki flashcards, supporting user authentication, task management, and real-time status tracking.
 
-## 技术栈
-- **框架**: React 18 + TypeScript
-- **构建工具**: Vite
-- **样式**: Tailwind CSS
-- **状态管理**: React Context + Hooks
+## Technology Stack
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **State Management**: React Context + Hooks
 - **HTTP**: Axios
-- **测试**: Playwright
-- **图标**: Lucide React
+- **Testing**: Playwright
+- **Icons**: Lucide React
 
-## 核心功能
-1. **用户认证**: 注册/登录/登出，JWT Token管理
-2. **文本输入**: 支持长文本，滚动条，验证
-3. **单词书选择**: JLPT N1-N5 多选
-4. **任务管理**: 创建、状态跟踪、队列显示
-5. **文件下载**: Anki卡片包(.apkg)下载
-6. **实时更新**: 5秒轮询任务状态
+## Core Features
+1. **User Authentication**: Registration/login/logout, JWT Token management
+2. **Text Input**: Support for long text, scrollbars, validation
+3. **Word Book Selection**: JLPT N1-N5 multi-select
+4. **Task Management**: Create, status tracking, queue display
+5. **File Download**: Anki card packages (.apkg) download
+6. **Real-time Updates**: 5-second polling for task status
 
-## 项目结构
+## Project Structure
 ```
 src/
-├── components/          # 可复用组件
-│   ├── LoginModal.tsx   # 认证模态框
-│   ├── Navbar.tsx       # 导航栏
-│   ├── TaskQueue.tsx    # 任务队列
-│   └── TextInputSection.tsx  # 输入区域
-├── contexts/            # 全局状态
-│   └── AuthContext.tsx  # 认证状态管理
-├── services/            # API服务
-│   └── api.ts           # 统一API封装
-├── constants/           # 配置常量
-│   └── config.ts        # 应用配置
-└── tests/               # 测试文件
+├── components/          # Reusable components
+│   ├── LoginModal.tsx   # Authentication modal
+│   ├── Navbar.tsx       # Navigation bar
+│   ├── TaskQueue.tsx    # Task queue
+│   └── TextInputSection.tsx  # Input area
+├── contexts/            # Global state
+│   └── AuthContext.tsx  # Authentication state management
+├── services/            # API services
+│   └── api.ts           # Unified API wrapper
+├── constants/           # Configuration constants
+│   └── config.ts        # Application configuration
+└── tests/               # Test files
 ```
 
-## 常用命令
+## Common Commands
 ```bash
-# 开发
-npm run dev                    # 启动开发服务器
-npm run build                  # 生产构建
-npm run preview                # 预览构建结果
+# Development
+npm run dev                    # Start development server
+npm run build                  # Production build
+npm run preview                # Preview build results
 
-# 测试
-npx playwright test           # 运行所有测试
-npx playwright test tests/e2e/auth.spec.ts  # 运行特定测试
-npx playwright show-report    # 查看测试报告
+# Testing
+npx playwright test           # Run all tests
+npx playwright test tests/e2e/auth.spec.ts  # Run specific tests
+npx playwright show-report    # View test report
 
-# 代码检查
-npm run lint                  # ESLint检查
+# Code checking
+npm run lint                  # ESLint check
 ```
 
-## API集成
-- 基础URL: `http://localhost:5000`
-- 认证: JWT Token存储在localStorage
-- 主要端点:
-  - `/api/auth/*` - 用户认证
-  - `/api/tasks/*` - 任务管理
-  - `/api/download/*` - 文件下载
+## API Integration
+- Base URL: `http://localhost:5000`
+- Authentication: JWT Token stored in localStorage
+- Main endpoints:
+  - `/api/auth/*` - User authentication
+  - `/api/tasks/*` - Task management
+  - `/api/download/*` - File download
 
-## 开发规范
-- 使用TypeScript严格模式
-- 组件使用函数式组件 + Hooks
-- 状态管理优先使用Context而非全局状态
-- API调用统一封装在services/api.ts
-- 样式使用Tailwind CSS原子类
-- 测试使用Playwright E2E测试
+## Development Standards
+- Use TypeScript strict mode
+- Components use functional components + Hooks
+- State management prioritizes Context over global state
+- API calls are uniformly encapsulated in services/api.ts
+- Styles use Tailwind CSS atomic classes
+- Tests use Playwright E2E tests
 
-## 测试策略
-- **E2E测试**: 覆盖用户完整流程
-- **手动测试**: 详细测试计划见TEST_PLAN.md
-- **响应式测试**: 桌面端和移动端
+## Test Strategy
+- **E2E Tests**: Cover complete user workflows
+- **Manual Tests**: Detailed test plan in TEST_PLAN.md
+- **Responsive Tests**: Desktop and mobile
 
-## 部署配置
-- 开发端口: 5173
-- 生产构建: dist/
-- 环境变量: VITE_API_BASE_URL
-- 后端依赖: 需要运行在5000端口的后端服务
+## Deployment Configuration
+- Development port: 5173
+- Production build: dist/
+- Environment variables: VITE_API_BASE_URL
+- Backend dependency: Requires backend service on port 5000
 
-## 常见问题
-1. **CORS问题**: 确保后端正确配置CORS
-2. **Token过期**: 401错误会自动清除token并重定向
-3. **构建优化**: 使用Vite的代码分割功能
-4. **样式问题**: 检查Tailwind配置和类名
+## Common Issues
+1. **CORS Issues**: Ensure backend has correct CORS configuration
+2. **Token Expiration**: 401 errors will auto clear token and redirect
+3. **Build Optimization**: Use Vite's code splitting
+4. **Style Issues**: Check Tailwind config and class names
