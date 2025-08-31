@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
 
-const API_BASE_URL = 'http://22d1c1b3.r6.cpolar.cn';
+const API_BASE_URL = 'http://4e19b9c5.r3.cpolar.top';
 
 export interface User {
   id: string;
@@ -67,7 +67,10 @@ class ApiService {
       (error) => {
         if (error.response?.status === 401) {
           localStorage.removeItem('auth_token');
-          window.location.href = '/login';
+          // 只在开发环境下重定向，生产环境由组件处理
+          if (import.meta.env.DEV) {
+            window.location.href = '/login';
+          }
         }
         return Promise.reject(error);
       }
@@ -78,10 +81,10 @@ class ApiService {
   async login(username: string, password: string): Promise<LoginResponse> {
     try {
       const response = await this.client.post('/api/auth/login', { username, password });
-      if (response.data?.token) {
-        localStorage.setItem('auth_token', response.data.token);
+      if (response.data?.data?.token) {
+        localStorage.setItem('auth_token', response.data.data.token);
       }
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       // Extract detailed error messages from backend
       if (error.response?.data?.message) {
@@ -105,12 +108,12 @@ class ApiService {
   async register(username: string, email: string, password: string): Promise<LoginResponse> {
     try {
       const response = await this.client.post('/api/auth/register', { username, email, password });
-      if (response.data?.user_id) {
+      if (response.data?.data?.user_id) {
         // Auto login after successful registration
         const loginResponse = await this.login(username, password);
         return loginResponse;
       }
-      return response.data;
+      return response.data.data;
     } catch (error: any) {
       // Extract detailed error messages from backend
       if (error.response?.data?.message) {

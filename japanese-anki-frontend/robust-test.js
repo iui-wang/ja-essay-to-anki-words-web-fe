@@ -24,13 +24,16 @@ import { faker } from '@faker-js/faker';
 
 // 生成随机用户信息
 function generateRandomUser() {
-    const username = faker.internet.username() + Math.floor(Math.random() * 1000);
-    const email = faker.internet.email();
-    const password = faker.internet.password({ length: 12 });
+    // 使用更随机的用户名生成方式，避免冲突
+    const timestamp = Date.now();
+    const randomNum = Math.floor(Math.random() * 1000000);
+    const username = `testuser_${timestamp}_${randomNum}`;
+    const email = `test_${timestamp}_${randomNum}@example.com`;
+    const password = faker.internet.password({ length: 16 }) + Math.floor(Math.random() * 1000);
     
     return {
-        username: username.toLowerCase().replace(/[^a-zA-Z0-9]/g, ''),
-        email: email.toLowerCase(),
+        username: username,
+        email: email,
         password: password
     };
 }
@@ -243,25 +246,93 @@ async function runFullTest() {
             viewport: { width: 1280, height: 720 }
         });
         
+        // 捕获浏览器控制台日志
+        page.on('console', msg => {
+            log(`浏览器控制台 [${msg.type()}]: ${msg.text()}`);
+        });
+        
+        // 捕获页面错误
+        page.on('pageerror', error => {
+            log(`页面错误: ${error.message}`);
+        });
+        
+        // 捕获网络请求失败
+        page.on('requestfailed', request => {
+            log(`请求失败: ${request.url()} - ${request.failure()?.errorText}`);
+        });
+        
+        // 捕获所有网络响应
+        page.on('response', response => {
+            if (response.url().includes('/api/')) {
+                log(`API响应: ${response.status()} ${response.url()}`);
+            }
+        });
+        
         // 生成随机用户数据
         const user = generateRandomUser();
         log("生成随机用户数据:", user);
         
         // 1. 访问首页 - 使用实际的开发服务器地址
         log("访问首页...");
-        const frontendUrl = process.env.FRONTEND_URL || 'http://3a07ca02.r3.cpolar.top';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://67d31b9e.r3.cpolar.top';
         log(`使用前端地址: ${frontendUrl}`);
-        await page.goto(frontendUrl);
-        await page.waitForLoadState('networkidle');
+        await page.goto(frontendUrl, { waitUntil: 'networkidle', timeout: 180000 });
+        
+        // 等待React应用完全加载 - 增加等待时间应对cpolar延迟
+        log("等待React应用加载（最多60秒）...");
+        
+        // 检查页面是否真正加载完成，最多等待60秒
+        let retryCount = 0;
+        let pageLoaded = false;
+        const maxRetries = 12; // 12 * 5秒 = 60秒
+        
+        while (retryCount < maxRetries && !pageLoaded) {
+            const rootContent = await page.locator('#root').textContent();
+            if (rootContent && rootContent.trim().length > 10) {
+                pageLoaded = true;
+                log("✅ 页面加载完成");
+            } else {
+                retryCount++;
+                log(`⏳ 页面仍在加载中，等待第${retryCount}/${maxRetries}次重试（5秒间隔）...`);
+                await page.waitForTimeout(5000);
+            }
+        }
+        
+        if (!pageLoaded) {
+            log("❌ 页面加载超时，检查网络连接和服务器状态");
+            const finalContent = await page.locator('body').textContent();
+            log(`最终页面内容: ${finalContent?.substring(0, 200)}...`);
+            throw new Error("页面加载失败，请检查前端服务器状态");
+        }
+        
         await dumpPageContent(page, 'homepage-loaded', 1);
         
         // 2. 点击登录/注册按钮 - 严格模式：直接执行，不重试
         log("点击登录/注册按钮...");
-        await page.click('button:has-text("Login/Register")');
+        
+        // 先检查按钮是否存在
+        const loginButton = await page.locator('button:has-text("Login/Register")');
+        const buttonCount = await loginButton.count();
+        log(`找到 ${buttonCount} 个登录/注册按钮`);
+        
+        if (buttonCount === 0) {
+            // 检查页面是否有其他内容
+            const bodyText = await page.locator('body').textContent();
+            log(`页面body内容: ${bodyText?.substring(0, 200)}...`);
+            
+            // 检查React根元素
+            const rootElement = await page.locator('#root');
+            const rootContent = await rootElement.textContent();
+            log(`React根元素内容: ${rootContent?.substring(0, 200)}...`);
+            
+            throw new Error("❌ 测试失败：找不到登录/注册按钮");
+        }
+        
+        await loginButton.click();
         await page.waitForTimeout(2000);
         
         // 严格验证模态框已打开
-        const modal = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50');
+        const modal = await page.locator('div.fixed[class*="bg-black"][class*="bg-opacity-50"]');
         if (await modal.count() === 0) {
             throw new Error("❌ 测试失败：点击登录按钮后模态框未打开");
         }
@@ -307,11 +378,37 @@ async function runFullTest() {
         await page.waitForTimeout(5000);
         
         // 检查是否有错误消息显示
-        const errorMessage = await page.locator('.text-red-500, .text-red-600, .error-message');
+        const errorMessage = await page.locator('.text-red-500, .text-red-600, .text-red-700, .error-message');
         if (await errorMessage.count() > 0) {
             const errorText = await errorMessage.textContent();
             log("❌ 注册失败，错误信息:", errorText);
             await dumpPageContent(page, 'register-error', 6);
+            
+            // 检查是否为用户名已存在的错误，如果是则重新生成用户信息并重试
+            if (errorText.includes('already registered') || errorText.includes('已存在') || errorText.includes('Username or email')) {
+                log("⚠️  用户名已存在，重新生成用户信息并重试...");
+                user = generateRandomUser();
+                
+                // 重新填写表单
+                await page.fill('input[type="text"]', user.username);
+                await page.fill('input[type="email"]', user.email);
+                await page.fill('input[type="password"]', user.password);
+                
+                // 重新提交
+                await page.click('button[type="submit"]:has-text("Register")');
+                await page.waitForTimeout(5000);
+                
+                // 检查是否成功
+                const newErrorMessage = await page.locator('.text-red-500, .text-red-600, .text-red-700, .error-message');
+                if (await newErrorMessage.count() > 0) {
+                    const newErrorText = await newErrorMessage.textContent();
+                    throw new Error(`注册失败（重试后）: ${newErrorText}`);
+                }
+                
+                // 如果重试后没有错误，继续后续检查
+                // 跳过后续错误检查，直接进入成功检查
+            }
+            
             throw new Error(`注册失败: ${errorText}`);
         }
         
@@ -327,66 +424,42 @@ async function runFullTest() {
             if (await successMessage.count() > 0) {
                 const successText = await successMessage.textContent();
                 log("注册成功提示:", successText);
-            }
-            
-            // 再等待一段时间看是否会自动关闭
-            await page.waitForTimeout(3000);
-            
-            // 最终检查模态框状态
-            const finalModalCount = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50').count();
-            if (finalModalCount > 0) {
-                log("模态框仍未关闭，继续后续步骤...");
-                await dumpPageContent(page, 'modal-still-open', 6);
+                
+                // 再等待一段时间看是否会自动关闭
+                await page.waitForTimeout(3000);
+                
+                // 最终检查模态框状态 - 必须关闭才算成功
+                const finalModalCount = await page.locator('.fixed.inset-0.bg-black.bg-opacity-50').count();
+                const finalWelcomeSpan = await page.locator('span:has-text("Welcome,")');
+                
+                if (finalModalCount > 0 || await finalWelcomeSpan.count() === 0) {
+                    await dumpPageContent(page, 'registration-failed', 6);
+                    throw new Error("❌ 注册失败：注册后模态框未关闭或未显示登录状态");
+                } else {
+                    log("✅ 注册成功，模态框已关闭");
+                }
             } else {
-                log("✅ 模态框已自动关闭");
+                await dumpPageContent(page, 'registration-failed', 6);
+                throw new Error("❌ 注册失败：未检测到成功提示或登录状态");
             }
         }
         
-        // 7. 检查登录状态
+        // 7. 检查登录状态 - 严格模式：必须已经登录，否则快速失败
         await page.waitForTimeout(2000);
         
         // 检查是否已登录 - 查看导航栏中的用户欢迎信息
         const userWelcomeText = await page.locator('span:has-text("Welcome,")');
-        const loginButton = await page.locator('button:has-text("Login/Register")');
+        const loginButton2 = await page.locator('button:has-text("Login/Register")');
         
         if (await userWelcomeText.count() > 0) {
             log("✅ 已成功登录");
-        } else if (await loginButton.count() > 0) {
-            log("需要手动登录...");
-            
-            // 点击登录按钮打开模态框
-            await loginButton.click();
-            await page.waitForTimeout(1000);
-            
-            // 确保在登录模式（如果当前是注册模式则切换）
-            const switchToLogin = await page.locator('button:has-text("Have account? Login")');
-            if (await switchToLogin.count() > 0) {
-                await switchToLogin.click();
-                await page.waitForTimeout(1000);
-            }
-            
-            // 填写登录信息
-            log("使用刚刚注册的凭据登录...");
-            log(`用户名: ${user.username}`);
-            log(`密码: ${user.password.substring(0, 3)}...`);
-            
-            await page.fill('input[type="text"]', user.username);
-            await page.fill('input[type="password"]', user.password);
-            
-            // 提交登录
-            log("提交登录...");
-            await page.click('button[type="submit"]:has-text("Login")');
-            
-            // 等待登录完成
-            await page.waitForTimeout(3000);
-            await takeScreenshot(page, 'login-completed', 6);
-            
-            // 验证登录成功
-            const welcomeTextAfterLogin = await page.locator('span:has-text("Welcome,")');
-            if (await welcomeTextAfterLogin.count() > 0) {
-                log("✅ 登录成功");
+        } else {
+            // 严格模式：如果注册后没有自动登录，直接失败
+            await dumpPageContent(page, 'login-status-check-failed', 7);
+            if (await loginButton2.count() > 0) {
+                throw new Error("❌ 测试失败：注册后未自动登录，仍显示Login/Register按钮");
             } else {
-                throw new Error("❌ 登录失败");
+                throw new Error("❌ 测试失败：无法确定登录状态，未找到Welcome信息或Login按钮");
             }
         }
         

@@ -9,7 +9,7 @@ import { api, type Task } from './services/api';
 function AppContent() {
   const { isAuthenticated } = useAuth();
   const [text, setText] = useState('');
-  const [selectedLevels, setSelectedLevels] = useState<string[]>(['N4', 'N5']);
+  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);

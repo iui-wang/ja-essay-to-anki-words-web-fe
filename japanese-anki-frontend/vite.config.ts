@@ -7,6 +7,12 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['3a07ca02.r3.cpolar.top']
+    allowedHosts: ['67d31b9e.r3.cpolar.top'],
+    hmr: false,
+    cors: false,
+    strictPort: true
+  },
+  define: {
+    'import.meta.env.DEV': JSON.stringify(false)
   }
 })
