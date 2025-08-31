@@ -108,7 +108,7 @@ export const TaskQueue: React.FC<TaskQueueProps> = ({ tasks, setTasks, onDownloa
   };
 
   return (
-    <div className="w-80">
+    <div className="min-w-fit">
       <h3 className="text-lg font-medium text-gray-900 mb-4">Task Queue</h3>
 
       {loading ? (

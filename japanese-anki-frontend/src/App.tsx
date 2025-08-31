@@ -100,7 +100,7 @@ function AppContent() {
             </div>
           </div>
 
-          <div className="w-80">
+          <div className="min-w-fit">
             <div className="card">
               <TaskQueue
                 tasks={tasks}
